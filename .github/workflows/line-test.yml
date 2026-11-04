@@ -1,0 +1,27 @@
+# Sends one test message, to check the LINE secrets work from the cloud.
+name: LINE test
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/line-test.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Send a test message
+        shell: powershell
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          if (-not $env:LINE_CHANNEL_TOKEN) { throw 'Secret LINE_CHANNEL_TOKEN is missing' }
+          if (-not $env:LINE_USER_ID) { throw 'Secret LINE_USER_ID is missing' }
+          .\line\send-line.ps1 -Text "✅ 雲端 LINE 測試成功：股票通知已能從 GitHub 發送。這只是測試，不是選股通知。"
