@@ -1,0 +1,55 @@
+# Screens the market after the close and pushes the evening lists to LINE.
+name: After-close list
+
+on:
+  schedule:
+    - cron: '7 10 * * 1-5'   # 18:07 Taipei, Monday to Friday
+  workflow_dispatch:
+
+env:
+  DRY_RUN: 'true'   # set to 'false' at cutover, once the Windows task is switched off
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-data-after-close
+
+jobs:
+  screen:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Taipei time
+        run: tzutil /s "Taipei Standard Time"
+      - name: Screen the market
+        shell: powershell
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          if ($env:DRY_RUN -eq 'true') { .\stock\after-close.ps1 -DryRun }
+          else { .\stock\after-close.ps1 }
+      - name: Save notified list
+        if: always()
+        shell: powershell
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add stock/data
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m 'Update notified list'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          }
+          exit 0
+      - name: Tell LINE if the run failed
+        if: failure() && env.DRY_RUN != 'true'
+        shell: powershell
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: .\line\send-line.ps1 -Text "⚠️ 雲端盤後名單執行失敗，請告訴 Claude 檢查。"

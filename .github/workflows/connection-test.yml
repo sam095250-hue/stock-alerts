@@ -1,0 +1,43 @@
+# Checks that every data source the alerts need answers from GitHub's cloud machines. Needs no secrets.
+name: Connection test
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/connection-test.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Try each data source
+        shell: powershell
+        run: |
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          $ua = @{ 'User-Agent' = 'Mozilla/5.0' }
+          $urls = [ordered]@{
+            'TWSE realtime quotes' = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=tse_2330.tw'
+            'TWSE daily list'      = 'https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL'
+            'TWSE company list'    = 'https://openapi.twse.com.tw/v1/opendata/t187ap03_L'
+            'TPEx daily list'      = 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes'
+            'TPEx company list'    = 'https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O'
+            'Yahoo daily bars'     = 'https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?range=1mo&interval=1d'
+            'Yahoo weekly bars'    = 'https://query1.finance.yahoo.com/v8/finance/chart/2330.TW?range=3y&interval=1wk'
+          }
+          $failed = 0
+          foreach ($name in $urls.Keys) {
+            try {
+              $r = Invoke-WebRequest $urls[$name] -Headers $ua -UseBasicParsing -TimeoutSec 30
+              [void]([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray()) | ConvertFrom-Json)
+              Write-Host "OK   $name ($($r.RawContentLength) bytes)"
+            } catch {
+              Write-Host "FAIL $name : $($_.Exception.Message)"
+              $failed++
+            }
+          }
+          if ($failed) { throw "$failed data source(s) failed" }

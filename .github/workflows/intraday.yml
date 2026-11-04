@@ -1,0 +1,62 @@
+# Watches the market through the trading day and pushes 20-week MA breakouts to LINE.
+name: Intraday alert
+
+on:
+  schedule:
+    - cron: '47 23 * * 0-4'   # 07:47 Taipei, Monday to Friday; early because GitHub can start late
+  workflow_dispatch:
+    inputs:
+      once:
+        description: 'One pass on the latest quotes, without pushing to LINE'
+        type: boolean
+        default: true
+
+env:
+  DRY_RUN: 'true'   # set to 'false' at cutover, once the Windows task is switched off
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-data-intraday
+
+jobs:
+  watch:
+    runs-on: windows-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Taipei time
+        run: tzutil /s "Taipei Standard Time"
+      - name: Watch the market
+        shell: powershell
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          ONCE: ${{ inputs.once }}
+        run: |
+          [Console]::OutputEncoding = [Text.Encoding]::UTF8
+          if ($env:ONCE -eq 'true') { .\stock\intraday-alert.ps1 -Once -DryRun }
+          elseif ($env:DRY_RUN -eq 'true') { .\stock\intraday-alert.ps1 -DryRun }
+          else { .\stock\intraday-alert.ps1 }
+      - name: Save caches and sent list
+        if: always()
+        shell: powershell
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add stock/data
+          git diff --cached --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m 'Update intraday data'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          }
+          exit 0
+      - name: Tell LINE if the run failed
+        if: failure() && env.DRY_RUN != 'true'
+        shell: powershell
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: .\line\send-line.ps1 -Text "⚠️ 雲端盤中通知執行失敗，請告訴 Claude 檢查。"
