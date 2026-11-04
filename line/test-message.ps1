@@ -1,0 +1,2 @@
+﻿# Sends a test message the same way the stock scripts do: Chinese text inside a UTF-8 .ps1 file with a BOM.
+& (Join-Path $PSScriptRoot 'send-line.ps1') -Text "✅ 測試一：這是選股通知的格式。台積電 2330（上市）現價 100｜20週線 95｜🔴 紅燈。這只是測試，不是選股通知。"

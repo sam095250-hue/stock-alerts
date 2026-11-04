@@ -21,7 +21,10 @@ jobs:
         env:
           LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+          # Passed as a variable because PowerShell 5.1 misreads Chinese written directly in a workflow's script.
+          FAILURE_STYLE_MESSAGE: ⚠️ 測試二：這是雲端失敗警告的格式，只是測試，沒有真的失敗。
         run: |
           if (-not $env:LINE_CHANNEL_TOKEN) { throw 'Secret LINE_CHANNEL_TOKEN is missing' }
           if (-not $env:LINE_USER_ID) { throw 'Secret LINE_USER_ID is missing' }
-          .\line\send-line.ps1 -Text "✅ 雲端 LINE 測試成功：股票通知已能從 GitHub 發送。這只是測試，不是選股通知。"
+          .\line\test-message.ps1
+          .\line\send-line.ps1 -Text $env:FAILURE_STYLE_MESSAGE

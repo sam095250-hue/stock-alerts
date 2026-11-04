@@ -59,4 +59,5 @@ jobs:
         env:
           LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
-        run: .\line\send-line.ps1 -Text "⚠️ 雲端盤中通知執行失敗，請告訴 Claude 檢查。"
+          MESSAGE: ⚠️ 雲端盤中通知執行失敗，請告訴 Claude 檢查。
+        run: .\line\send-line.ps1 -Text $env:MESSAGE
