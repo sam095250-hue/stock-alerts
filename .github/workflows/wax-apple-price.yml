@@ -1,0 +1,27 @@
+# Pushes the day's wholesale wax apple (bullet type) prices to LINE.
+name: Wax apple price
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 11:17 Taipei, every day
+  workflow_dispatch:
+
+env:
+  DRY_RUN: 'false'   # set to 'true' to only print the message
+
+permissions:
+  contents: read
+
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Look up prices and push to LINE
+        env:
+          LINE_CHANNEL_TOKEN: ${{ secrets.LINE_CHANNEL_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
+        run: |
+          if [ "$DRY_RUN" = 'true' ]; then python3 market/wax_apple_price.py --line --dry-run
+          else python3 market/wax_apple_price.py --line; fi
